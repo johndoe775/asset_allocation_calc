@@ -12,30 +12,35 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
-    # Environment MUST be created in Settings first
     environment:
       name: github-pages
-    
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Debug - Check if secret is set
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_WORKER_URL }}" ]; then
+            echo "ERROR: CLOUDFLARE_WORKER_URL secret is EMPTY or NOT SET!"
+            echo "Add it under Settings > Environments > github-pages > Environment secrets"
+            exit 1
+          else
+            echo "Secret is set (value hidden for security)"
+          fi
+
       - name: Inject GitHub Secrets into index.html
         run: |
           sed -i 's|__CLOUDFLARE_WORKER_URL__|${{ secrets.CLOUDFLARE_WORKER_URL }}|g' index.html
-      
+          echo "--- Verifying replacement ---"
+          grep "CLOUDFLARE_WORKER_URL" index.html | head -3
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
-      
+
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-      
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-    
-    # Output URL captured separately
-    outputs:
-      page_url: ${{ steps.deployment.outputs.page_url }}
