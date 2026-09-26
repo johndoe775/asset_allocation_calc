@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,22 +10,34 @@
   <script src="https://cdn.tailwindcss.com"></script>
 
   <style>
-    html { color-scheme: dark; }
-    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    html {
+      color-scheme: dark;
+    }
+
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
     .glass {
       background: rgba(15, 23, 42, 0.72);
       backdrop-filter: blur(12px);
       border: 1px solid rgba(148, 163, 184, 0.15);
     }
+
     .spinner {
       width: 18px;
       height: 18px;
-      border: 2px solid rgba(255,255,255,.25);
+      border: 2px solid rgba(255, 255, 255, .25);
       border-top-color: white;
       border-radius: 999px;
       animation: spin .8s linear infinite;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
   </style>
 </head>
 
@@ -47,7 +60,7 @@
         </div>
 
         <div id="statusBadge"
-             class="inline-flex w-fit items-center rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-400">
+          class="inline-flex w-fit items-center rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-400">
           Ready
         </div>
       </div>
@@ -60,36 +73,24 @@
           <span class="mb-2 block text-sm font-medium text-slate-300">
             Total Capital (₹)
           </span>
-          <input
-            id="capitalInput"
-            type="number"
-            min="1"
-            step="1000"
-            value="10000"
-            class="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-lg outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-          />
+          <input id="capitalInput" type="number" min="1" step="1000" value="10000"
+            class="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-lg outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20" />
         </label>
 
-        <button
-          id="fetchButton"
-          type="button"
-          class="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-xl bg-sky-500 px-6 py-3 font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+        <button id="fetchButton" type="button"
+          class="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-xl bg-sky-500 px-6 py-3 font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60">
           <span id="spinner" class="spinner hidden"></span>
           <span id="buttonText">Fetch &amp; Calculate</span>
         </button>
 
-        <button
-          id="resetButton"
-          type="button"
-          class="min-h-[50px] rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
-        >
+        <button id="resetButton" type="button"
+          class="min-h-[50px] rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800">
           Reset
         </button>
       </div>
 
       <div id="errorBox"
-           class="mt-4 hidden rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+        class="mt-4 hidden rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-300">
       </div>
 
       <p class="mt-4 text-xs leading-5 text-slate-500">
@@ -176,8 +177,7 @@
      * const CLOUDFLARE_WORKER_URL =
      *   "https://etf-scanner-proxy.your-subdomain.workers.dev";
      */
-    const CLOUDFLARE_WORKER_URL = "https://sweet-band-556b.johndoe775024.workers.dev/";
-
+    const CLOUDFLARE_WORKER_URL = "__CLOUDFLARE_WORKER_URL__";
     /*
      * Portfolio target weights from the supplied specification.
      */
@@ -544,4 +544,5 @@
     });
   </script>
 </body>
+
 </html>
