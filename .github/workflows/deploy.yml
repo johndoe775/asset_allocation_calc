@@ -2,8 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
@@ -13,26 +12,22 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
+    
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      
       - name: Inject GitHub Secrets into index.html
         run: |
           sed -i 's|__CLOUDFLARE_WORKER_URL__|${{ secrets.CLOUDFLARE_WORKER_URL }}|g' index.html
-
+      
       - name: Setup Pages
         uses: actions/configure-pages@v4
-
+      
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-
+      
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
