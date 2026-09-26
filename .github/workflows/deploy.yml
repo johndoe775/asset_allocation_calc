@@ -28,8 +28,12 @@ jobs:
           fi
 
       - name: Inject GitHub Secrets into index.html
+        env:
+          WORKER_URL: ${{ secrets.CLOUDFLARE_WORKER_URL }}
         run: |
-          sed -i 's|__CLOUDFLARE_WORKER_URL__|${{ secrets.CLOUDFLARE_WORKER_URL }}|g' index.html
+          echo "Replacing placeholder with secret value..."
+          # Use awk for safe replacement (avoids sed delimiter issues)
+          awk -v url="$WORKER_URL" '{gsub(/__CLOUDFLARE_WORKER_URL__/, url); print}' index.html > index.tmp && mv index.tmp index.html
           echo "--- Verifying replacement ---"
           grep "CLOUDFLARE_WORKER_URL" index.html | head -3
 
