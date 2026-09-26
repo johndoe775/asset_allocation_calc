@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="ETF Portfolio Rebalancer" />
+  <meta name="description" content="ETF Portfolio Rebalancer - Two-pane view for mobile and desktop" />
   <title>ETF Portfolio Rebalancer</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -19,9 +19,19 @@
     }
 
     .glass {
-      background: rgba(15, 23, 42, 0.72);
+      background: rgba(15, 23, 42, 0.75);
       backdrop-filter: blur(12px);
-      border: 1px solid rgba(148, 163, 184, 0.15);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+    }
+
+    .glass-card {
+      background: rgba(30, 41, 59, 0.55);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(148, 163, 184, 0.12);
+    }
+
+    .glass-card:hover {
+      border-color: rgba(56, 189, 248, 0.3);
     }
 
     .spinner {
@@ -38,130 +48,351 @@
         transform: rotate(360deg);
       }
     }
+
+    /* Custom subtle scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(71, 85, 105, 0.6);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 116, 139, 0.8);
+    }
   </style>
 </head>
 
-<body class="min-h-screen bg-slate-950 text-slate-100">
-  <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+<body class="min-h-screen bg-slate-950 text-slate-100 antialiased selection:bg-sky-500/30 selection:text-sky-200">
+  <main class="mx-auto max-w-7xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
 
     <!-- Header -->
-    <header class="mb-8">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <header class="mb-4 sm:mb-6">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p class="mb-2 text-sm font-semibold uppercase tracking-widest text-sky-400">
-            Portfolio Tool
-          </p>
-          <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">
+          <div class="flex items-center gap-2">
+            <span class="inline-block h-2 w-2 rounded-full bg-emerald-400 ring-4 ring-emerald-400/20"></span>
+            <p class="text-xs font-semibold uppercase tracking-wider text-sky-400">
+              Portfolio Tool
+            </p>
+          </div>
+          <h1 class="mt-0.5 text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl text-white">
             ETF Portfolio Rebalancer
           </h1>
-          <p class="mt-2 max-w-3xl text-slate-400">
-            Fetch live ETF prices and calculate whole-unit allocations against your target weights.
+          <p class="mt-1 text-xs sm:text-sm text-slate-400 max-w-2xl">
+            Live ETF prices &amp; whole-unit allocation calculator against target weights.
           </p>
         </div>
 
-        <div id="statusBadge"
-          class="inline-flex w-fit items-center rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-400">
-          Ready
+        <div class="flex items-center gap-2">
+          <div id="statusBadge"
+            class="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/90 px-3 py-1 text-xs font-medium text-slate-400 shadow-sm">
+            Ready
+          </div>
         </div>
       </div>
     </header>
 
-    <!-- Controls -->
-    <section class="glass mb-6 rounded-2xl p-5 shadow-2xl">
-      <div class="grid gap-4 md:grid-cols-[1fr_auto_auto] md:items-end">
-        <label>
-          <span class="mb-2 block text-sm font-medium text-slate-300">
-            Total Capital (₹)
-          </span>
-          <input id="capitalInput" type="number" min="1" step="1000" value="10000"
-            class="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-lg outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20" />
-        </label>
-
-        <button id="fetchButton" type="button"
-          class="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-xl bg-sky-500 px-6 py-3 font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60">
-          <span id="spinner" class="spinner hidden"></span>
-          <span id="buttonText">Fetch &amp; Calculate</span>
-        </button>
-
-        <button id="resetButton" type="button"
-          class="min-h-[50px] rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800">
-          Reset
-        </button>
-      </div>
-
-      <div id="errorBox"
-        class="mt-4 hidden rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-300">
-      </div>
-
-      <p class="mt-4 text-xs leading-5 text-slate-500">
-        Prices are fetched from TradingView through your Cloudflare Worker. This dashboard is
-        an allocation calculator and does not place trades.
-      </p>
-    </section>
-
-    <!-- Summary -->
-    <section class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="glass rounded-2xl p-5">
-        <p class="text-sm text-slate-400">Total Capital</p>
-        <p id="summaryCapital" class="mt-2 text-2xl font-bold">₹0</p>
-      </div>
-
-      <div class="glass rounded-2xl p-5">
-        <p class="text-sm text-slate-400">Total Allocated</p>
-        <p id="summaryAllocated" class="mt-2 text-2xl font-bold">₹0</p>
-      </div>
-
-      <div class="glass rounded-2xl p-5">
-        <p class="text-sm text-slate-400">Unused Cash</p>
-        <p id="summaryCash" class="mt-2 text-2xl font-bold">₹0</p>
-      </div>
-
-      <div class="glass rounded-2xl p-5">
-        <p class="text-sm text-slate-400">Cash Drag</p>
-        <p id="summaryDrag" class="mt-2 text-2xl font-bold">0.00%</p>
-      </div>
-    </section>
-
-    <!-- Portfolio table -->
-    <section class="glass overflow-hidden rounded-2xl shadow-2xl">
-      <div class="border-b border-slate-800 px-5 py-4">
-        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 class="font-semibold">Target Allocation</h2>
-            <p class="text-sm text-slate-500">
-              Whole units only; residual capital remains as unused cash.
-            </p>
-          </div>
-          <p id="lastUpdated" class="text-xs text-slate-500">Not fetched yet</p>
+    <!-- Mobile Sticky Quick Bar (Gives overview at a glance on small screens) -->
+    <div id="mobileQuickBar"
+      class="lg:hidden sticky top-2 z-30 mb-3 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/90 px-3.5 py-2.5 shadow-lg backdrop-blur-md">
+      <div class="flex items-center gap-2.5 text-xs">
+        <div>
+          <span class="text-slate-500">Cap:</span>
+          <span id="mobileBarCapital" class="font-semibold text-slate-100">₹10,000</span>
+        </div>
+        <span class="text-slate-700">|</span>
+        <div>
+          <span class="text-slate-500">Alloc:</span>
+          <span id="mobileBarAllocated" class="font-semibold text-emerald-400">₹0</span>
+        </div>
+        <span class="text-slate-700">|</span>
+        <div>
+          <span class="text-slate-500">Cash:</span>
+          <span id="mobileBarCash" class="font-semibold text-amber-300">₹0</span>
         </div>
       </div>
+      <button id="mobileQuickEditBtn" type="button"
+        class="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-medium text-sky-400 transition hover:bg-slate-700">
+        <span>⚙️ Setup</span>
+      </button>
+    </div>
 
-      <div class="overflow-x-auto">
-        <table class="min-w-[1000px] w-full text-left text-sm">
-          <thead class="bg-slate-900/70 text-xs uppercase tracking-wider text-slate-500">
-            <tr>
-              <th class="px-5 py-4">Asset</th>
-              <th class="px-5 py-4">Symbol</th>
-              <th class="px-5 py-4 text-right">Target</th>
-              <th class="px-5 py-4 text-right">LTP (₹)</th>
-              <th class="px-5 py-4 text-right">Units</th>
-              <th class="px-5 py-4 text-right">Invested (₹)</th>
-              <th class="px-5 py-4 text-right">Actual Weight</th>
-            </tr>
-          </thead>
-          <tbody id="portfolioBody" class="divide-y divide-slate-800">
-            <tr>
-              <td colspan="7" class="px-5 py-12 text-center text-slate-500">
-                Enter capital and click <span class="text-slate-300">Fetch &amp; Calculate</span>.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    <!-- Mobile Two-Pane Switcher Tabs (Hidden on desktop) -->
+    <nav aria-label="Mobile Navigation" class="lg:hidden mb-4 grid grid-cols-2 gap-1 rounded-xl border border-slate-800 bg-slate-900/80 p-1 shadow-inner">
+      <button id="paneTabAllocations" type="button"
+        class="flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold tracking-wide transition shadow-sm bg-sky-500 text-white">
+        <span>📊 Allocations</span>
+        <span class="rounded-full bg-sky-600/80 px-1.5 py-0.5 text-[10px] text-white">4 ETFs</span>
+      </button>
+      <button id="paneTabSummary" type="button"
+        class="flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold tracking-wide transition text-slate-400 hover:text-slate-200">
+        <span>⚙️ Capital &amp; Summary</span>
+      </button>
+    </nav>
 
-    <footer class="mt-6 text-center text-xs text-slate-600">
-      Market data source: TradingView Scanner API via Cloudflare Worker.
+    <!-- Global Error Box (Visible across all views) -->
+    <div id="errorBox"
+      class="mb-4 hidden rounded-xl border border-red-900/60 bg-red-950/60 p-4 text-sm text-red-300 shadow-lg">
+    </div>
+
+    <!-- Responsive Two-Pane Layout Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 lg:gap-6 items-start">
+
+      <!-- ========================================================
+           PANE 1: ALLOCATION INFORMATION (GIVEN HIGH IMPORTANCE)
+           ======================================================== -->
+      <section id="paneAllocations" class="space-y-4 lg:col-span-7 lg:order-2">
+        <div class="glass overflow-hidden rounded-2xl shadow-xl">
+          
+          <!-- Allocation Pane Header -->
+          <div class="border-b border-slate-800/80 px-4 py-3.5 sm:px-5 sm:py-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-1.5">
+                    <span>Target Allocation</span>
+                    <span class="text-xs font-normal text-sky-400 bg-sky-950/60 border border-sky-800/50 rounded-md px-2 py-0.5">Whole Units</span>
+                  </h2>
+                </div>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  Exact buy orders calculated to match your target portfolio weights.
+                </p>
+              </div>
+
+              <!-- View Switcher (Cards vs Table) -->
+              <div class="flex items-center gap-2">
+                <div class="inline-flex rounded-lg border border-slate-800 bg-slate-900/90 p-0.5 text-xs">
+                  <button id="viewToggleCards" type="button" title="Cards View"
+                    class="rounded-md px-2.5 py-1 font-medium transition bg-sky-500/20 text-sky-300">
+                    Cards
+                  </button>
+                  <button id="viewToggleTable" type="button" title="Table View"
+                    class="rounded-md px-2.5 py-1 font-medium transition text-slate-400 hover:text-slate-200">
+                    Table
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Last Updated Timestamp -->
+            <div class="mt-2 flex items-center justify-between text-[11px] text-slate-500 border-t border-slate-800/50 pt-2">
+              <span id="allocationStatusText">Ready to calculate</span>
+              <span id="lastUpdated">Not fetched yet</span>
+            </div>
+          </div>
+
+          <!-- ALLOCATION CARDS VIEW (Optimized for Mobile & Quick Reading) -->
+          <div id="allocationCardsContainer" class="p-3 sm:p-5">
+            <div id="portfolioCards" class="grid gap-3 sm:gap-4">
+              <!-- Initial Empty State -->
+              <div class="rounded-xl border border-dashed border-slate-800 p-8 text-center">
+                <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-2xl text-slate-400">
+                  📊
+                </div>
+                <h3 class="text-sm font-semibold text-slate-200">No Allocation Generated Yet</h3>
+                <p class="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
+                  Click below to fetch live prices from TradingView and compute whole-unit buy orders.
+                </p>
+                <button type="button" onclick="fetchAndCalculate()"
+                  class="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-sky-400">
+                  <span>⚡ Fetch &amp; Calculate Now</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ALLOCATION TABLE VIEW (Desktop / Tablet Full Details) -->
+          <div id="allocationTableContainer" class="hidden overflow-x-auto">
+            <table class="min-w-[700px] w-full text-left text-sm">
+              <thead class="bg-slate-900/80 text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="px-4 py-3 sm:px-5">Asset</th>
+                  <th class="px-3 py-3 text-right">Target</th>
+                  <th class="px-3 py-3 text-right">LTP (₹)</th>
+                  <th class="px-4 py-3 text-right font-bold text-sky-400">Buy Units</th>
+                  <th class="px-4 py-3 text-right">Invested (₹)</th>
+                  <th class="px-4 py-3 text-right sm:px-5">Actual %</th>
+                </tr>
+              </thead>
+              <tbody id="portfolioBody" class="divide-y divide-slate-800/80">
+                <tr>
+                  <td colspan="6" class="px-5 py-12 text-center text-slate-500">
+                    Enter capital and click <span class="text-slate-300 font-medium">Fetch &amp; Calculate</span>.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- Deployment Progress / Health Banner -->
+        <div class="glass rounded-2xl p-4 sm:p-5 shadow-lg">
+          <div class="flex items-center justify-between text-xs sm:text-sm font-medium">
+            <span class="text-slate-300">Capital Deployment Efficiency</span>
+            <span id="deploymentPercent" class="font-bold text-emerald-400">0.0% Deployed</span>
+          </div>
+          <div class="mt-2.5 h-2.5 w-full overflow-hidden rounded-full bg-slate-900 border border-slate-800">
+            <div id="deploymentBar" class="h-full bg-gradient-to-r from-sky-500 to-emerald-400 transition-all duration-500" style="width: 0%"></div>
+          </div>
+          <div class="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+            <span>Residual cash stays safe as buffer</span>
+            <span id="deploymentSubtext">Awaiting calculation</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           PANE 2: CONTROLS & PORTFOLIO SUMMARY
+           ======================================================== -->
+      <section id="paneSummary" class="hidden lg:block space-y-4 lg:col-span-5 lg:order-1 lg:sticky lg:top-6">
+        
+        <!-- Controls Card -->
+        <div class="glass rounded-2xl p-4 sm:p-5 shadow-xl">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-base font-bold text-white flex items-center gap-1.5">
+              <span>Capital &amp; Rebalance</span>
+            </h2>
+            <span class="text-[11px] text-slate-400 bg-slate-900 px-2 py-0.5 rounded-full border border-slate-800">INR (₹)</span>
+          </div>
+
+          <label class="block">
+            <span class="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Total Capital to Invest (₹)
+            </span>
+            <div class="relative">
+              <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-500 font-medium">
+                ₹
+              </span>
+              <input id="capitalInput" type="number" min="1" step="1000" value="10000"
+                class="w-full rounded-xl border border-slate-700 bg-slate-900 pl-8 pr-4 py-3 text-lg font-bold text-white outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20" />
+            </div>
+          </label>
+
+          <!-- Quick Capital Preset Chips for Easy Mobile Taps -->
+          <div class="mt-2.5 flex flex-wrap gap-1.5">
+            <button type="button" onclick="setCapital(5000)"
+              class="rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-xs font-medium text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+              ₹5k
+            </button>
+            <button type="button" onclick="setCapital(10000)"
+              class="rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-xs font-medium text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+              ₹10k
+            </button>
+            <button type="button" onclick="setCapital(25000)"
+              class="rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-xs font-medium text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+              ₹25k
+            </button>
+            <button type="button" onclick="setCapital(50000)"
+              class="rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-xs font-medium text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+              ₹50k
+            </button>
+            <button type="button" onclick="setCapital(100000)"
+              class="rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-xs font-medium text-slate-400 hover:border-slate-700 hover:text-slate-200 transition">
+              ₹1L
+            </button>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="mt-4 grid grid-cols-3 gap-2">
+            <button id="fetchButton" type="button"
+              class="col-span-2 inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60">
+              <span id="spinner" class="spinner hidden"></span>
+              <span id="buttonText">Fetch &amp; Calculate</span>
+            </button>
+
+            <button id="resetButton" type="button"
+              class="col-span-1 min-h-[46px] rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2.5 font-semibold text-slate-300 transition hover:bg-slate-800 active:scale-[0.98]">
+              Reset
+            </button>
+          </div>
+
+          <p class="mt-3 text-[11px] leading-relaxed text-slate-500">
+            Market prices are retrieved in real-time from TradingView Scanner API via Cloudflare Worker.
+          </p>
+        </div>
+
+        <!-- 4 Summary Metric Cards (Compact 2x2 grid) -->
+        <div class="grid grid-cols-2 gap-2.5 sm:gap-3">
+          
+          <!-- Capital -->
+          <div class="glass rounded-xl p-3.5 sm:p-4">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Total Capital</span>
+              <span class="text-sky-400 text-[10px]">Budget</span>
+            </div>
+            <p id="summaryCapital" class="mt-1 text-lg sm:text-xl font-bold text-white">₹0</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">Input amount</p>
+          </div>
+
+          <!-- Allocated -->
+          <div class="glass rounded-xl p-3.5 sm:p-4 border-l-2 border-l-emerald-500">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Allocated</span>
+              <span class="text-emerald-400 text-[10px]">Invested</span>
+            </div>
+            <p id="summaryAllocated" class="mt-1 text-lg sm:text-xl font-bold text-emerald-400">₹0</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">Whole units cost</p>
+          </div>
+
+          <!-- Unused Cash -->
+          <div class="glass rounded-xl p-3.5 sm:p-4">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Unused Cash</span>
+              <span class="text-amber-400 text-[10px]">Residual</span>
+            </div>
+            <p id="summaryCash" class="mt-1 text-lg sm:text-xl font-bold text-amber-300">₹0</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">Unspent surplus</p>
+          </div>
+
+          <!-- Cash Drag -->
+          <div class="glass rounded-xl p-3.5 sm:p-4">
+            <div class="flex items-center justify-between text-xs text-slate-400">
+              <span>Cash Drag</span>
+              <span class="text-indigo-400 text-[10px]">Ratio</span>
+            </div>
+            <p id="summaryDrag" class="mt-1 text-lg sm:text-xl font-bold text-slate-200">0.00%</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">of total capital</p>
+          </div>
+
+        </div>
+
+        <!-- Target Allocation Recipe Legend -->
+        <div class="glass rounded-2xl p-4 text-xs text-slate-400 space-y-2">
+          <div class="flex items-center justify-between font-semibold text-slate-300 text-xs border-b border-slate-800/80 pb-2">
+            <span>Portfolio Target Blueprint</span>
+            <span>Weight</span>
+          </div>
+          <div class="flex justify-between items-center py-1">
+            <span class="text-slate-300">Kotak Nifty 100 EW ETF</span>
+            <span class="font-mono text-sky-400">18.0%</span>
+          </div>
+          <div class="flex justify-between items-center py-1">
+            <span class="text-slate-300">Zerodha Midcap 150 ETF</span>
+            <span class="font-mono text-sky-400">31.5%</span>
+          </div>
+          <div class="flex justify-between items-center py-1">
+            <span class="text-slate-300">Groww Smallcap 250 ETF</span>
+            <span class="font-mono text-sky-400">40.5%</span>
+          </div>
+          <div class="flex justify-between items-center py-1">
+            <span class="text-slate-300">Tata Gold ETF</span>
+            <span class="font-mono text-sky-400">10.0%</span>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-8 text-center text-xs text-slate-600 border-t border-slate-900 pt-4">
+      Market data source: TradingView Scanner API via Cloudflare Worker. Whole-unit rebalancing calculator.
     </footer>
   </main>
 
@@ -178,6 +409,7 @@
      *   "https://etf-scanner-proxy.your-subdomain.workers.dev";
      */
     const CLOUDFLARE_WORKER_URL = "__CLOUDFLARE_WORKER_URL__";
+
     /*
      * Portfolio target weights from the supplied specification.
      */
@@ -213,7 +445,30 @@
     const buttonText = $("buttonText");
     const errorBox = $("errorBox");
     const portfolioBody = $("portfolioBody");
+    const portfolioCards = $("portfolioCards");
     const statusBadge = $("statusBadge");
+
+    // Two-pane elements
+    const paneTabAllocations = $("paneTabAllocations");
+    const paneTabSummary = $("paneTabSummary");
+    const paneAllocations = $("paneAllocations");
+    const paneSummary = $("paneSummary");
+
+    // View toggles (Cards vs Table)
+    const viewToggleCards = $("viewToggleCards");
+    const viewToggleTable = $("viewToggleTable");
+    const allocationCardsContainer = $("allocationCardsContainer");
+    const allocationTableContainer = $("allocationTableContainer");
+
+    // Mobile quick bar
+    const mobileBarCapital = $("mobileBarCapital");
+    const mobileBarAllocated = $("mobileBarAllocated");
+    const mobileBarCash = $("mobileBarCash");
+    const mobileQuickEditBtn = $("mobileQuickEditBtn");
+
+    let activePane = "allocations"; // 'allocations' | 'summary'
+    let currentViewMode = "cards";   // 'cards' | 'table'
+    let lastCalculatedData = null;
 
     const formatINR = (value, maximumFractionDigits = 2) =>
       new Intl.NumberFormat("en-IN", {
@@ -227,38 +482,101 @@
         maximumFractionDigits
       }).format(Number(value) || 0);
 
+    // Two-pane mobile tab switching
+    function switchMobilePane(pane) {
+      activePane = pane;
+      if (pane === "allocations") {
+        paneAllocations.classList.remove("hidden");
+        paneSummary.classList.add("hidden");
+        paneSummary.classList.remove("block");
+
+        // Tab styles
+        paneTabAllocations.className = "flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold tracking-wide transition shadow-sm bg-sky-500 text-white";
+        paneTabSummary.className = "flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold tracking-wide transition text-slate-400 hover:text-slate-200";
+      } else {
+        paneAllocations.classList.add("hidden");
+        paneSummary.classList.remove("hidden");
+        paneSummary.classList.add("block");
+
+        // Tab styles
+        paneTabAllocations.className = "flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold tracking-wide transition text-slate-400 hover:text-slate-200";
+        paneTabSummary.className = "flex items-center justify-center gap-1.5 rounded-lg py-2.5 text-xs font-semibold tracking-wide transition shadow-sm bg-sky-500 text-white";
+      }
+    }
+
+    // View mode toggle (Cards vs Table)
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      if (mode === "cards") {
+        allocationCardsContainer.classList.remove("hidden");
+        allocationTableContainer.classList.add("hidden");
+
+        viewToggleCards.className = "rounded-md px-2.5 py-1 font-medium transition bg-sky-500/20 text-sky-300";
+        viewToggleTable.className = "rounded-md px-2.5 py-1 font-medium transition text-slate-400 hover:text-slate-200";
+      } else {
+        allocationCardsContainer.classList.add("hidden");
+        allocationTableContainer.classList.remove("hidden");
+
+        viewToggleCards.className = "rounded-md px-2.5 py-1 font-medium transition text-slate-400 hover:text-slate-200";
+        viewToggleTable.className = "rounded-md px-2.5 py-1 font-medium transition bg-sky-500/20 text-sky-300";
+      }
+    }
+
+    // Quick set capital helper
+    function setCapital(amount) {
+      capitalInput.value = amount;
+      mobileBarCapital.textContent = formatINR(amount, 0);
+      $("summaryCapital").textContent = formatINR(amount, 0);
+      
+      // If we already have live data, instantly recalculate
+      if (lastCalculatedData && Array.isArray(lastCalculatedData)) {
+        const capital = getCapital();
+        const allocation = calculateAllocation(lastCalculatedData, capital);
+        renderAllocationView(allocation);
+        renderSummary(capital, allocation);
+      }
+    }
+
     function setLoading(isLoading) {
       fetchButton.disabled = isLoading;
       spinner.classList.toggle("hidden", !isLoading);
       buttonText.textContent = isLoading ? "Fetching..." : "Fetch & Calculate";
       statusBadge.textContent = isLoading ? "Fetching prices..." : "Ready";
+      if (isLoading) {
+        statusBadge.className = "inline-flex items-center rounded-full border border-sky-800 bg-sky-950/80 px-3 py-1 text-xs font-medium text-sky-300 animate-pulse";
+      }
     }
 
     function showError(message) {
-      errorBox.textContent = message;
+      errorBox.innerHTML = `
+        <div class="flex items-start gap-2.5">
+          <span class="text-base">⚠️</span>
+          <div class="flex-1">
+            <p class="font-semibold text-red-200">Unable to calculate allocation</p>
+            <p class="mt-0.5 text-xs text-red-300/90 leading-relaxed">${escapeHTML(message)}</p>
+          </div>
+        </div>
+      `;
       errorBox.classList.remove("hidden");
       statusBadge.textContent = "Error";
+      statusBadge.className = "inline-flex items-center rounded-full border border-red-800 bg-red-950/80 px-3 py-1 text-xs font-medium text-red-300";
     }
 
     function clearError() {
-      errorBox.textContent = "";
+      errorBox.innerHTML = "";
       errorBox.classList.add("hidden");
     }
 
     function getCapital() {
       const capital = Number(capitalInput.value);
-
       if (!Number.isFinite(capital) || capital <= 0) {
         throw new Error("Please enter a valid capital amount greater than ₹0.");
       }
-
       return capital;
     }
 
     /*
      * TradingView Scanner payload.
-     *
-     * The Scanner API expects tickers such as NSE:NIFTY200EW.
      */
     function buildScannerPayload() {
       return {
@@ -275,13 +593,14 @@
     async function fetchPrices() {
       if (
         !CLOUDFLARE_WORKER_URL ||
-        CLOUDFLARE_WORKER_URL.includes("YOUR-WORKER")
+        CLOUDFLARE_WORKER_URL.includes("YOUR-WORKER") ||
+        CLOUDFLARE_WORKER_URL.startsWith("__")
       ) {
         throw new Error(
-          "Set CLOUDFLARE_WORKER_URL in index.html before fetching market data."
+          "Set CLOUDFLARE_WORKER_URL in index.html or configure the GitHub Actions secret before fetching live market data."
         );
       }
-      //added url to environment secrets
+
       const response = await fetch(CLOUDFLARE_WORKER_URL, {
         method: "POST",
         headers: {
@@ -315,22 +634,12 @@
       return data.data;
     }
 
-    /*
-     * Normalizes TradingView scanner rows into:
-     * { ticker, name, close, change }
-     */
     function normalizeRows(rows) {
       const byTicker = new Map();
 
       for (const row of rows) {
         if (!Array.isArray(row?.d)) continue;
-
         const [name, close, change] = row.d;
-
-        /*
-         * Scanner responses may include s = "NSE:TICKER".
-         * Some response variants may expose the symbol differently.
-         */
         const ticker = row.s || row.symbol || "";
 
         byTicker.set(ticker.toUpperCase(), {
@@ -343,7 +652,6 @@
 
       return ASSETS.map(asset => {
         const row = byTicker.get(asset.ticker.toUpperCase());
-
         if (!row || !Number.isFinite(row.close) || row.close <= 0) {
           throw new Error(
             `No valid LTP was returned for ${asset.ticker}.`
@@ -358,16 +666,6 @@
       });
     }
 
-    /*
-     * Allocation math:
-     *
-     * Target Value = Capital × Target Weight
-     * Units        = floor(Target Value / LTP)
-     * Invested     = Units × LTP
-     *
-     * Actual weight is based on total invested value.
-     * Cash drag is unused cash / total capital.
-     */
     function calculateAllocation(assets, capital) {
       const calculated = assets.map(asset => {
         const targetValue = capital * asset.targetWeight;
@@ -404,45 +702,149 @@
       }));
     }
 
+    // Copy ticker to clipboard with instant user feedback
+    function copyTicker(ticker, buttonEl) {
+      navigator.clipboard.writeText(ticker).then(() => {
+        const originalHTML = buttonEl.innerHTML;
+        buttonEl.innerHTML = `<span class="text-emerald-400">✓ Copied</span>`;
+        setTimeout(() => {
+          buttonEl.innerHTML = originalHTML;
+        }, 1500);
+      }).catch(() => {});
+    }
+
+    // Render mobile-first Cards with supreme emphasis on Units & Allocation
+    function renderCards(rows) {
+      portfolioCards.innerHTML = rows.map((asset, index) => {
+        const targetPct = (asset.targetWeight * 100).toFixed(1);
+        const actualPct = (asset.actualWeight * 100).toFixed(1);
+        const isUnitsZero = asset.units === 0;
+
+        return `
+          <div class="glass-card rounded-xl p-3.5 sm:p-4 transition shadow-md hover:shadow-sky-500/5">
+            <!-- Asset Header -->
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="font-bold text-slate-100 text-sm sm:text-base leading-tight">
+                    ${escapeHTML(asset.name)}
+                  </span>
+                </div>
+                <div class="mt-1 flex items-center gap-2">
+                  <span class="rounded bg-slate-900 border border-slate-800 px-2 py-0.5 font-mono text-[11px] text-sky-400">
+                    ${escapeHTML(asset.ticker)}
+                  </span>
+                  <button type="button" onclick="copyTicker('${escapeHTML(asset.ticker)}', this)"
+                    class="text-[11px] text-slate-400 hover:text-sky-300 transition flex items-center gap-0.5" title="Copy symbol to clipboard">
+                    <span>📋 Copy</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Target Badge -->
+              <span class="shrink-0 rounded-full border border-sky-800/60 bg-sky-950/70 px-2.5 py-0.5 text-xs font-semibold text-sky-300">
+                Target ${targetPct}%
+              </span>
+            </div>
+
+            <!-- Hero Order Callout: GIVES SUPREME PROMINENCE TO BUY UNITS -->
+            <div class="mt-3 grid grid-cols-2 gap-2 rounded-xl ${isUnitsZero ? 'bg-amber-950/20 border border-amber-900/40' : 'bg-slate-900/90 border border-slate-800'} p-3">
+              <div>
+                <p class="text-[10px] font-bold uppercase tracking-wider ${isUnitsZero ? 'text-amber-400' : 'text-sky-400'}">
+                  Buy Units
+                </p>
+                <p class="text-2xl sm:text-3xl font-extrabold ${isUnitsZero ? 'text-amber-300' : 'text-white'} mt-0.5">
+                  ${formatNumber(asset.units, 0)}
+                  <span class="text-xs font-medium text-slate-400 font-normal">units</span>
+                </p>
+              </div>
+
+              <div class="text-right">
+                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Total Order Value
+                </p>
+                <p class="text-lg sm:text-xl font-bold text-emerald-400 mt-0.5">
+                  ${formatINR(asset.investedValue)}
+                </p>
+              </div>
+            </div>
+
+            <!-- Price & Weights Grid -->
+            <div class="mt-3 grid grid-cols-3 gap-2 border-t border-slate-800/80 pt-2.5 text-xs">
+              <div>
+                <span class="block text-[10px] text-slate-500">LTP</span>
+                <span class="font-semibold text-slate-200">${formatINR(asset.ltp)}</span>
+              </div>
+              <div class="text-center">
+                <span class="block text-[10px] text-slate-500">Target Value</span>
+                <span class="font-semibold text-slate-300">${formatINR(asset.targetValue)}</span>
+              </div>
+              <div class="text-right">
+                <span class="block text-[10px] text-slate-500">Actual Weight</span>
+                <span class="font-semibold ${isUnitsZero ? 'text-slate-500' : 'text-white'}">
+                  ${actualPct}%
+                </span>
+              </div>
+            </div>
+
+            <!-- Progress bar comparing actual weight to target -->
+            <div class="mt-2 h-1.5 w-full rounded-full bg-slate-900 overflow-hidden">
+              <div class="h-full ${isUnitsZero ? 'bg-amber-500/40' : 'bg-sky-400'} rounded-full"
+                style="width: ${Math.min(100, (asset.actualWeight / (asset.targetWeight || 1)) * 100)}%"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Render Table view (for desktop and optional toggle on mobile)
     function renderTable(rows) {
       portfolioBody.innerHTML = rows.map(asset => `
         <tr class="transition hover:bg-slate-900/60">
-          <td class="px-5 py-4">
-            <div class="font-medium text-slate-100">${escapeHTML(asset.name)}</div>
+          <td class="px-4 py-3 sm:px-5">
+            <div class="font-medium text-slate-100 text-xs sm:text-sm">${escapeHTML(asset.name)}</div>
+            <div class="mt-0.5 flex items-center gap-1.5">
+              <code class="rounded bg-slate-900 px-1.5 py-0.5 text-[11px] text-sky-300">
+                ${escapeHTML(asset.ticker)}
+              </code>
+              <button type="button" onclick="copyTicker('${escapeHTML(asset.ticker)}', this)"
+                class="text-[11px] text-slate-500 hover:text-sky-300" title="Copy symbol">
+                📋
+              </button>
+            </div>
           </td>
 
-          <td class="px-5 py-4">
-            <code class="rounded bg-slate-900 px-2 py-1 text-xs text-sky-300">
-              ${escapeHTML(asset.ticker)}
-            </code>
-          </td>
-
-          <td class="px-5 py-4 text-right font-medium">
+          <td class="px-3 py-3 text-right font-medium text-xs sm:text-sm">
             ${(asset.targetWeight * 100).toFixed(1)}%
           </td>
 
-          <td class="px-5 py-4 text-right">
+          <td class="px-3 py-3 text-right text-xs sm:text-sm">
             ${formatNumber(asset.ltp, 2)}
           </td>
 
-          <td class="px-5 py-4 text-right font-semibold">
+          <td class="px-4 py-3 text-right font-bold text-sm sm:text-base text-sky-300">
             ${formatNumber(asset.units, 0)}
           </td>
 
-          <td class="px-5 py-4 text-right">
+          <td class="px-4 py-3 text-right font-medium text-xs sm:text-sm text-emerald-400">
             ${formatINR(asset.investedValue)}
           </td>
 
-          <td class="px-5 py-4 text-right">
-            <div class="font-semibold">
+          <td class="px-4 py-3 text-right sm:px-5 text-xs sm:text-sm">
+            <div class="font-semibold text-slate-100">
               ${(asset.actualWeight * 100).toFixed(2)}%
             </div>
-            <div class="text-xs text-slate-500">
+            <div class="text-[10px] text-slate-500">
               of invested
             </div>
           </td>
         </tr>
       `).join("");
+    }
+
+    function renderAllocationView(rows) {
+      renderCards(rows);
+      renderTable(rows);
     }
 
     function renderSummary(capital, rows) {
@@ -453,14 +855,32 @@
 
       const unusedCash = capital - totalAllocated;
       const cashDrag = capital > 0 ? unusedCash / capital : 0;
+      const deployedPercent = capital > 0 ? (totalAllocated / capital) * 100 : 0;
 
+      // Desktop Summary Cards
       $("summaryCapital").textContent = formatINR(capital);
       $("summaryAllocated").textContent = formatINR(totalAllocated);
       $("summaryCash").textContent = formatINR(unusedCash);
       $("summaryDrag").textContent = `${(cashDrag * 100).toFixed(2)}%`;
 
-      $("lastUpdated").textContent =
-        `Updated ${new Date().toLocaleString("en-IN")}`;
+      // Mobile Quick Bar
+      mobileBarCapital.textContent = formatINR(capital, 0);
+      mobileBarAllocated.textContent = formatINR(totalAllocated, 0);
+      mobileBarCash.textContent = formatINR(unusedCash, 0);
+
+      // Deployment Efficiency Bar
+      const deploymentBar = $("deploymentBar");
+      const deploymentPercentEl = $("deploymentPercent");
+      const deploymentSubtext = $("deploymentSubtext");
+
+      deploymentPercentEl.textContent = `${deployedPercent.toFixed(1)}% Deployed`;
+      deploymentBar.style.width = `${Math.min(100, deployedPercent)}%`;
+      deploymentSubtext.textContent = `${formatINR(totalAllocated)} of ${formatINR(capital)}`;
+
+      // Allocation Pane status
+      const nowStr = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      $("lastUpdated").textContent = `Updated ${nowStr}`;
+      $("allocationStatusText").textContent = `Allocated across 4 target ETFs`;
     }
 
     function escapeHTML(value) {
@@ -480,15 +900,22 @@
         const capital = getCapital();
         const scannerRows = await fetchPrices();
         const assets = normalizeRows(scannerRows);
+        lastCalculatedData = assets;
         const allocation = calculateAllocation(assets, capital);
 
-        renderTable(allocation);
+        renderAllocationView(allocation);
         renderSummary(capital, allocation);
 
         statusBadge.textContent = "Live data loaded";
+        statusBadge.className = "inline-flex items-center rounded-full border border-emerald-800 bg-emerald-950/80 px-3 py-1 text-xs font-medium text-emerald-400 shadow-sm";
+
+        // On mobile, if user was in setup pane, switch to Allocations pane so results are immediately visible!
+        if (window.innerWidth < 1024 && activePane === "summary") {
+          switchMobilePane("allocations");
+        }
+
       } catch (error) {
         console.error(error);
-
         showError(
           error instanceof Error
             ? error.message
@@ -502,24 +929,52 @@
     function resetDashboard() {
       capitalInput.value = "10000";
       clearError();
+      lastCalculatedData = null;
 
       portfolioBody.innerHTML = `
         <tr>
-          <td colspan="7" class="px-5 py-12 text-center text-slate-500">
+          <td colspan="6" class="px-5 py-12 text-center text-slate-500">
             Enter capital and click
             <span class="text-slate-300">Fetch &amp; Calculate</span>.
           </td>
         </tr>
       `;
 
+      portfolioCards.innerHTML = `
+        <div class="rounded-xl border border-dashed border-slate-800 p-8 text-center">
+          <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-900 text-2xl text-slate-400">
+            📊
+          </div>
+          <h3 class="text-sm font-semibold text-slate-200">No Allocation Generated Yet</h3>
+          <p class="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
+            Click below to fetch live prices from TradingView and compute whole-unit buy orders.
+          </p>
+          <button type="button" onclick="fetchAndCalculate()"
+            class="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-sky-500 px-4 py-2 text-xs font-semibold text-white shadow-md transition hover:bg-sky-400">
+            <span>⚡ Fetch &amp; Calculate Now</span>
+          </button>
+        </div>
+      `;
+
       $("summaryCapital").textContent = "₹0";
       $("summaryAllocated").textContent = "₹0";
       $("summaryCash").textContent = "₹0";
       $("summaryDrag").textContent = "0.00%";
+      $("deploymentPercent").textContent = "0.0% Deployed";
+      $("deploymentBar").style.width = "0%";
+      $("deploymentSubtext").textContent = "Awaiting calculation";
       $("lastUpdated").textContent = "Not fetched yet";
+      $("allocationStatusText").textContent = "Ready to calculate";
+
+      mobileBarCapital.textContent = "₹10,000";
+      mobileBarAllocated.textContent = "₹0";
+      mobileBarCash.textContent = "₹0";
+
       statusBadge.textContent = "Ready";
+      statusBadge.className = "inline-flex items-center rounded-full border border-slate-700 bg-slate-900/90 px-3 py-1 text-xs font-medium text-slate-400";
     }
 
+    // Event listeners
     fetchButton.addEventListener("click", fetchAndCalculate);
     resetButton.addEventListener("click", resetDashboard);
 
@@ -529,15 +984,27 @@
       }
     });
 
+    capitalInput.addEventListener("input", () => {
+      mobileBarCapital.textContent = formatINR(capitalInput.value || 0, 0);
+    });
+
+    // Mobile Tab switcher listeners
+    paneTabAllocations.addEventListener("click", () => switchMobilePane("allocations"));
+    paneTabSummary.addEventListener("click", () => switchMobilePane("summary"));
+    mobileQuickEditBtn.addEventListener("click", () => switchMobilePane("summary"));
+
+    // View mode switcher listeners
+    viewToggleCards.addEventListener("click", () => setViewMode("cards"));
+    viewToggleTable.addEventListener("click", () => setViewMode("table"));
+
     /*
-     * Auto-fetch on initial page load.
-     * If the Worker URL is still the placeholder, the UI displays
-     * a configuration message instead of silently failing.
+     * Auto-fetch on initial page load if worker URL is set.
      */
     window.addEventListener("DOMContentLoaded", () => {
       if (
         CLOUDFLARE_WORKER_URL &&
-        !CLOUDFLARE_WORKER_URL.includes("YOUR-WORKER")
+        !CLOUDFLARE_WORKER_URL.includes("YOUR-WORKER") &&
+        !CLOUDFLARE_WORKER_URL.startsWith("__")
       ) {
         fetchAndCalculate();
       }
@@ -546,4 +1013,3 @@
 </body>
 
 </html>
-// dummy push
