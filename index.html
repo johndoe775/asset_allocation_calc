@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="ETF Portfolio Rebalancer" />
+  <title>ETF Portfolio Rebalancer</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    html { color-scheme: dark; }
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .glass {
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,.25);
+      border-top-color: white;
+      border-radius: 999px;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+
+    <!-- Header -->
+    <header class="mb-8">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p class="mb-2 text-sm font-semibold uppercase tracking-widest text-sky-400">
+            Portfolio Tool
+          </p>
+          <h1 class="text-3xl font-bold tracking-tight sm:text-4xl">
+            ETF Portfolio Rebalancer
+          </h1>
+          <p class="mt-2 max-w-3xl text-slate-400">
+            Fetch live ETF prices and calculate whole-unit allocations against your target weights.
+          </p>
+        </div>
+
+        <div id="statusBadge"
+             class="inline-flex w-fit items-center rounded-full border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-400">
+          Ready
+        </div>
+      </div>
+    </header>
+
+    <!-- Controls -->
+    <section class="glass mb-6 rounded-2xl p-5 shadow-2xl">
+      <div class="grid gap-4 md:grid-cols-[1fr_auto_auto] md:items-end">
+        <label>
+          <span class="mb-2 block text-sm font-medium text-slate-300">
+            Total Capital (₹)
+          </span>
+          <input
+            id="capitalInput"
+            type="number"
+            min="1"
+            step="1000"
+            value="10000"
+            class="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-lg outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+          />
+        </label>
+
+        <button
+          id="fetchButton"
+          type="button"
+          class="inline-flex min-h-[50px] items-center justify-center gap-2 rounded-xl bg-sky-500 px-6 py-3 font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <span id="spinner" class="spinner hidden"></span>
+          <span id="buttonText">Fetch &amp; Calculate</span>
+        </button>
+
+        <button
+          id="resetButton"
+          type="button"
+          class="min-h-[50px] rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
+        >
+          Reset
+        </button>
+      </div>
+
+      <div id="errorBox"
+           class="mt-4 hidden rounded-xl border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+      </div>
+
+      <p class="mt-4 text-xs leading-5 text-slate-500">
+        Prices are fetched from TradingView through your Cloudflare Worker. This dashboard is
+        an allocation calculator and does not place trades.
+      </p>
+    </section>
+
+    <!-- Summary -->
+    <section class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="glass rounded-2xl p-5">
+        <p class="text-sm text-slate-400">Total Capital</p>
+        <p id="summaryCapital" class="mt-2 text-2xl font-bold">₹0</p>
+      </div>
+
+      <div class="glass rounded-2xl p-5">
+        <p class="text-sm text-slate-400">Total Allocated</p>
+        <p id="summaryAllocated" class="mt-2 text-2xl font-bold">₹0</p>
+      </div>
+
+      <div class="glass rounded-2xl p-5">
+        <p class="text-sm text-slate-400">Unused Cash</p>
+        <p id="summaryCash" class="mt-2 text-2xl font-bold">₹0</p>
+      </div>
+
+      <div class="glass rounded-2xl p-5">
+        <p class="text-sm text-slate-400">Cash Drag</p>
+        <p id="summaryDrag" class="mt-2 text-2xl font-bold">0.00%</p>
+      </div>
+    </section>
+
+    <!-- Portfolio table -->
+    <section class="glass overflow-hidden rounded-2xl shadow-2xl">
+      <div class="border-b border-slate-800 px-5 py-4">
+        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="font-semibold">Target Allocation</h2>
+            <p class="text-sm text-slate-500">
+              Whole units only; residual capital remains as unused cash.
+            </p>
+          </div>
+          <p id="lastUpdated" class="text-xs text-slate-500">Not fetched yet</p>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-[1000px] w-full text-left text-sm">
+          <thead class="bg-slate-900/70 text-xs uppercase tracking-wider text-slate-500">
+            <tr>
+              <th class="px-5 py-4">Asset</th>
+              <th class="px-5 py-4">Symbol</th>
+              <th class="px-5 py-4 text-right">Target</th>
+              <th class="px-5 py-4 text-right">LTP (₹)</th>
+              <th class="px-5 py-4 text-right">Units</th>
+              <th class="px-5 py-4 text-right">Invested (₹)</th>
+              <th class="px-5 py-4 text-right">Actual Weight</th>
+            </tr>
+          </thead>
+          <tbody id="portfolioBody" class="divide-y divide-slate-800">
+            <tr>
+              <td colspan="7" class="px-5 py-12 text-center text-slate-500">
+                Enter capital and click <span class="text-slate-300">Fetch &amp; Calculate</span>.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer class="mt-6 text-center text-xs text-slate-600">
+      Market data source: TradingView Scanner API via Cloudflare Worker.
+    </footer>
+  </main>
+
+  <script>
+    /*
+     * ============================================================
+     * CONFIGURATION
+     * ============================================================
+     *
+     * Replace this with your deployed Cloudflare Worker URL.
+     *
+     * Example:
+     * const CLOUDFLARE_WORKER_URL =
+     *   "https://etf-scanner-proxy.your-subdomain.workers.dev";
+     */
+    const CLOUDFLARE_WORKER_URL = "https://sweet-band-556b.johndoe775024.workers.dev/";
+
+    /*
+     * Portfolio target weights from the supplied specification.
+     */
+    const ASSETS = [
+      {
+        name: "Kotak Nifty 100 Equal Weight ETF",
+        ticker: "NSE:NIFTY100EW",
+        targetWeight: 0.180
+      },
+      {
+        name: "Zerodha Nifty Midcap 150 ETF",
+        ticker: "NSE:MID150CASE",
+        targetWeight: 0.315
+      },
+      {
+        name: "Groww Nifty Smallcap 250 ETF",
+        ticker: "NSE:GROWWSC250",
+        targetWeight: 0.405
+      },
+      {
+        name: "Tata Gold ETF",
+        ticker: "NSE:TATAGOLD",
+        targetWeight: 0.100
+      }
+    ];
+
+    const $ = (id) => document.getElementById(id);
+
+    const capitalInput = $("capitalInput");
+    const fetchButton = $("fetchButton");
+    const resetButton = $("resetButton");
+    const spinner = $("spinner");
+    const buttonText = $("buttonText");
+    const errorBox = $("errorBox");
+    const portfolioBody = $("portfolioBody");
+    const statusBadge = $("statusBadge");
+
+    const formatINR = (value, maximumFractionDigits = 2) =>
+      new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits
+      }).format(Number(value) || 0);
+
+    const formatNumber = (value, maximumFractionDigits = 2) =>
+      new Intl.NumberFormat("en-IN", {
+        maximumFractionDigits
+      }).format(Number(value) || 0);
+
+    function setLoading(isLoading) {
+      fetchButton.disabled = isLoading;
+      spinner.classList.toggle("hidden", !isLoading);
+      buttonText.textContent = isLoading ? "Fetching..." : "Fetch & Calculate";
+      statusBadge.textContent = isLoading ? "Fetching prices..." : "Ready";
+    }
+
+    function showError(message) {
+      errorBox.textContent = message;
+      errorBox.classList.remove("hidden");
+      statusBadge.textContent = "Error";
+    }
+
+    function clearError() {
+      errorBox.textContent = "";
+      errorBox.classList.add("hidden");
+    }
+
+    function getCapital() {
+      const capital = Number(capitalInput.value);
+
+      if (!Number.isFinite(capital) || capital <= 0) {
+        throw new Error("Please enter a valid capital amount greater than ₹0.");
+      }
+
+      return capital;
+    }
+
+    /*
+     * TradingView Scanner payload.
+     *
+     * The Scanner API expects tickers such as NSE:NIFTY200EW.
+     */
+    function buildScannerPayload() {
+      return {
+        symbols: {
+          tickers: ASSETS.map(asset => asset.ticker),
+          query: {
+            types: []
+          }
+        },
+        columns: ["name", "close", "change"]
+      };
+    }
+
+    async function fetchPrices() {
+      if (
+        !CLOUDFLARE_WORKER_URL ||
+        CLOUDFLARE_WORKER_URL.includes("YOUR-WORKER")
+      ) {
+        throw new Error(
+          "Set CLOUDFLARE_WORKER_URL in index.html before fetching market data."
+        );
+      }
+
+      const response = await fetch(CLOUDFLARE_WORKER_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(buildScannerPayload())
+      });
+
+      const rawText = await response.text();
+
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(
+          `Worker returned a non-JSON response (HTTP ${response.status}).`
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+          `TradingView request failed with HTTP ${response.status}.`
+        );
+      }
+
+      if (!Array.isArray(data?.data)) {
+        throw new Error("Unexpected TradingView response: missing data array.");
+      }
+
+      return data.data;
+    }
+
+    /*
+     * Normalizes TradingView scanner rows into:
+     * { ticker, name, close, change }
+     */
+    function normalizeRows(rows) {
+      const byTicker = new Map();
+
+      for (const row of rows) {
+        if (!Array.isArray(row?.d)) continue;
+
+        const [name, close, change] = row.d;
+
+        /*
+         * Scanner responses may include s = "NSE:TICKER".
+         * Some response variants may expose the symbol differently.
+         */
+        const ticker = row.s || row.symbol || "";
+
+        byTicker.set(ticker.toUpperCase(), {
+          ticker,
+          name: name || "",
+          close: Number(close),
+          change: Number(change)
+        });
+      }
+
+      return ASSETS.map(asset => {
+        const row = byTicker.get(asset.ticker.toUpperCase());
+
+        if (!row || !Number.isFinite(row.close) || row.close <= 0) {
+          throw new Error(
+            `No valid LTP was returned for ${asset.ticker}.`
+          );
+        }
+
+        return {
+          ...asset,
+          ltp: row.close,
+          change: Number.isFinite(row.change) ? row.change : null
+        };
+      });
+    }
+
+    /*
+     * Allocation math:
+     *
+     * Target Value = Capital × Target Weight
+     * Units        = floor(Target Value / LTP)
+     * Invested     = Units × LTP
+     *
+     * Actual weight is based on total invested value.
+     * Cash drag is unused cash / total capital.
+     */
+    function calculateAllocation(assets, capital) {
+      const calculated = assets.map(asset => {
+        const targetValue = capital * asset.targetWeight;
+        const units = Math.floor(targetValue / asset.ltp);
+        const investedValue = units * asset.ltp;
+
+        return {
+          ...asset,
+          targetValue,
+          units,
+          investedValue
+        };
+      });
+
+      const totalAllocated = calculated.reduce(
+        (sum, asset) => sum + asset.investedValue,
+        0
+      );
+
+      const unusedCash = capital - totalAllocated;
+
+      return calculated.map(asset => ({
+        ...asset,
+        actualWeight:
+          totalAllocated > 0
+            ? asset.investedValue / totalAllocated
+            : 0,
+        actualWeightOfCapital:
+          capital > 0
+            ? asset.investedValue / capital
+            : 0,
+        unusedCash,
+        cashDrag: capital > 0 ? unusedCash / capital : 0
+      }));
+    }
+
+    function renderTable(rows) {
+      portfolioBody.innerHTML = rows.map(asset => `
+        <tr class="transition hover:bg-slate-900/60">
+          <td class="px-5 py-4">
+            <div class="font-medium text-slate-100">${escapeHTML(asset.name)}</div>
+          </td>
+
+          <td class="px-5 py-4">
+            <code class="rounded bg-slate-900 px-2 py-1 text-xs text-sky-300">
+              ${escapeHTML(asset.ticker)}
+            </code>
+          </td>
+
+          <td class="px-5 py-4 text-right font-medium">
+            ${(asset.targetWeight * 100).toFixed(1)}%
+          </td>
+
+          <td class="px-5 py-4 text-right">
+            ${formatNumber(asset.ltp, 2)}
+          </td>
+
+          <td class="px-5 py-4 text-right font-semibold">
+            ${formatNumber(asset.units, 0)}
+          </td>
+
+          <td class="px-5 py-4 text-right">
+            ${formatINR(asset.investedValue)}
+          </td>
+
+          <td class="px-5 py-4 text-right">
+            <div class="font-semibold">
+              ${(asset.actualWeight * 100).toFixed(2)}%
+            </div>
+            <div class="text-xs text-slate-500">
+              of invested
+            </div>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function renderSummary(capital, rows) {
+      const totalAllocated = rows.reduce(
+        (sum, asset) => sum + asset.investedValue,
+        0
+      );
+
+      const unusedCash = capital - totalAllocated;
+      const cashDrag = capital > 0 ? unusedCash / capital : 0;
+
+      $("summaryCapital").textContent = formatINR(capital);
+      $("summaryAllocated").textContent = formatINR(totalAllocated);
+      $("summaryCash").textContent = formatINR(unusedCash);
+      $("summaryDrag").textContent = `${(cashDrag * 100).toFixed(2)}%`;
+
+      $("lastUpdated").textContent =
+        `Updated ${new Date().toLocaleString("en-IN")}`;
+    }
+
+    function escapeHTML(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    async function fetchAndCalculate() {
+      clearError();
+      setLoading(true);
+
+      try {
+        const capital = getCapital();
+        const scannerRows = await fetchPrices();
+        const assets = normalizeRows(scannerRows);
+        const allocation = calculateAllocation(assets, capital);
+
+        renderTable(allocation);
+        renderSummary(capital, allocation);
+
+        statusBadge.textContent = "Live data loaded";
+      } catch (error) {
+        console.error(error);
+
+        showError(
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function resetDashboard() {
+      capitalInput.value = "10000";
+      clearError();
+
+      portfolioBody.innerHTML = `
+        <tr>
+          <td colspan="7" class="px-5 py-12 text-center text-slate-500">
+            Enter capital and click
+            <span class="text-slate-300">Fetch &amp; Calculate</span>.
+          </td>
+        </tr>
+      `;
+
+      $("summaryCapital").textContent = "₹0";
+      $("summaryAllocated").textContent = "₹0";
+      $("summaryCash").textContent = "₹0";
+      $("summaryDrag").textContent = "0.00%";
+      $("lastUpdated").textContent = "Not fetched yet";
+      statusBadge.textContent = "Ready";
+    }
+
+    fetchButton.addEventListener("click", fetchAndCalculate);
+    resetButton.addEventListener("click", resetDashboard);
+
+    capitalInput.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        fetchAndCalculate();
+      }
+    });
+
+    /*
+     * Auto-fetch on initial page load.
+     * If the Worker URL is still the placeholder, the UI displays
+     * a configuration message instead of silently failing.
+     */
+    window.addEventListener("DOMContentLoaded", () => {
+      if (
+        CLOUDFLARE_WORKER_URL &&
+        !CLOUDFLARE_WORKER_URL.includes("YOUR-WORKER")
+      ) {
+        fetchAndCalculate();
+      }
+    });
+  </script>
+</body>
+</html>
