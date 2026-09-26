@@ -281,7 +281,7 @@
           "Set CLOUDFLARE_WORKER_URL in index.html before fetching market data."
         );
       }
-
+      //added url to environment secrets
       const response = await fetch(CLOUDFLARE_WORKER_URL, {
         method: "POST",
         headers: {
