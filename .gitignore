@@ -23,3 +23,7 @@
 hs_err_pid*
 replay_pid*
 Makefile
+
+# Dhan Trade Executor
+dhan_trade_executor/
+../dhan_trade_executor/
